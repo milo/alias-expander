@@ -41,19 +41,23 @@ class AliasExpander
 	 * Sets cache dir.
 	 * @param  string  path to cache directory
 	 * @return self
-	 * @throws \RuntimeException  if cache dir is not writable
 	 */
 	public function setCacheDir($dir)
 	{
 		$dir = $dir . DIRECTORY_SEPARATOR . 'AliasExpander';
+		$valid = TRUE;
 		if (!is_dir($dir)) {
-			@mkdir($dir);
-			$err = error_get_last();
-			if (!is_dir($dir)) {
-				throw new \RuntimeException("Cannot create cache directory '$dir': $err[message]");
-			}
+			set_error_handler(function($severity, $message) use ($dir, &$valid) {
+				restore_error_handler();
+				return $valid = is_dir($dir);
+			});
+			mkdir($dir);
+			restore_error_handler();
 		}
-		$this->cacheDir = $dir;
+
+		if ($valid) {
+			$this->cacheDir = $dir;
+		}
 		return $this;
 	}
 
