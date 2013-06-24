@@ -1,11 +1,12 @@
 <?php
 
-namespace Milo\Utils;
+namespace Milo;
 
 
 
 /**
- * Tool for run-time class alias expanding (emulate the ::class from PHP 5.5)
+ * Tool for a run-time class alias expanding (emulates the ::class from PHP 5.5)
+ * and a helper for annotations processing.
  *
  * You can choose one of three licences:
  *
@@ -13,17 +14,14 @@ namespace Milo\Utils;
  * @licence GNU General Public License version 2
  * @licence GNU General Public License version 3
  *
- * @see https://github.com/milo/utils
+ * @see https://github.com/milo/alias-expander
  *
  * @author  Miloslav Hůla (https://github.com/milo)
  */
 class AliasExpander
 {
-	/** @var self  singleton self instance */
-	private static $instance;
-
 	/** @var string  cache dir path */
-	protected $cacheDir;
+	private $cacheDir;
 
 	/** @var \ArrayIterator */
 	private $tokens;
@@ -36,33 +34,6 @@ class AliasExpander
 
 	/** @var bool */
 	private $checkAutoload = TRUE;
-
-
-
-	/**
-	 * @throws \LogicException  when more then one instance is created
-	 */
-	final public function __construct()
-	{
-		if (self::$instance !== NULL) {
-			throw new \LogicException('Class is singleton. Use ' . __CLASS__ . '::getInstance() instead.');
-		}
-		self::$instance = $this;
-	}
-
-
-
-	/**
-	 * Returns singleton instance.
-	 * @return self
-	 */
-	final public static function getInstance()
-	{
-		if (self::$instance === NULL) {
-			self::$instance = new static;
-		}
-		return self::$instance;
-	}
 
 
 
@@ -104,14 +75,14 @@ class AliasExpander
 
 
 	/**
-	 * Expands class alias in context where this method is called.
+	 * Expands class alias in a context where this method is called.
 	 * @param  string  class alias
 	 * @param  int  how deep is wrapped this method call
-	 * @return string
+	 * @return string fully qualified class name
 	 * @throws \RuntimeException  when origin of call cannot be found in backtrace
 	 * @throws \LogicException  when empty alias name passed
 	 */
-	final public static function expand($alias, $depth = 0)
+	public function expand($alias, $depth = 0)
 	{
 		$bt = PHP_VERSION_ID < 50400
 			? debug_backtrace(FALSE)
@@ -121,20 +92,20 @@ class AliasExpander
 			throw new \RuntimeException('Cannot find an origin of call in backtrace.');
 		}
 
-		return self::expandExplicit($alias, $bt[$depth]['file'], $bt[$depth]['line']);
+		return $this->expandExplicit($alias, $bt[$depth]['file'], $bt[$depth]['line']);
 	}
 
 
 
 	/**
-	 * Expands class alias in file:line context.
+	 * Expands class alias in a file:line context.
 	 * @param  string  class alias
-	 * @param  string
-	 * @param  int
-	 * @return string
+	 * @param  string  file path
+	 * @param  int  line number
+	 * @return string  fully qualified class name
 	 * @throws \LogicException  when empty class alias name passed
 	 */
-	final public static function expandExplicit($alias, $file, $line = 0)
+	public function expandExplicit($alias, $file, $line = 0)
 	{
 		if (empty($alias)) {
 			throw new \LogicException('Alias name must not be empty.');
@@ -152,7 +123,7 @@ class AliasExpander
 				$suffix = substr($alias, $pos);
 			}
 
-			$parsed = self::getInstance()->parse($file);
+			$parsed = $this->parse($file);
 			$next = each($parsed);
 			do {
 				list($nsLine, $data) = $next;
@@ -166,11 +137,10 @@ class AliasExpander
 			}
 		}
 
-		$instance = self::getInstance();
-		if (!empty($instance->checkSeverity) && !class_exists($return, $instance->checkAutoload)) {
+		if (!empty($this->checkSeverity) && !class_exists($return, $this->checkAutoload)) {
 			$message = "Class $return not found";
-			if (is_int($instance->checkSeverity)) {
-				trigger_error($message, $instance->checkSeverity);
+			if (is_int($this->checkSeverity)) {
+				trigger_error($message, $this->checkSeverity);
 			} else {
 				throw new \RuntimeException($message);
 			}
@@ -346,6 +316,63 @@ class AliasExpander
 	{
 		$token = $this->fetchToken(FALSE);
 		return $type === (is_array($token) ? $token[0] : $token);
+	}
+
+}
+
+
+
+/**
+ * A wrapper for the Milo\AliasExpander.
+ *
+ * @author  Miloslav Hůla (https://github.com/milo)
+ */
+class Alias
+{
+	/** @var AliasExpander */
+	private static $instance;
+
+
+
+	/**
+	 * @throws \LogicException  when instantized
+	 */
+	final public function __construct()
+	{
+		throw new \LogicException('This is a static class and cannot be instantized.');
+	}
+
+
+
+	/**
+	 * @return AliasExpander
+	 */
+	public static function getExpander()
+	{
+		if (self::$instance === NULL) {
+			self::$instance = new AliasExpander;
+		}
+		return self::$instance;
+	}
+
+
+
+	/**
+	 * {@link AliasExpander::expand()}
+	 */
+	public static function expand($alias, $depth = 0)
+	{
+		return self::getExpander()->expand($alias, $depth + 1);
+	}
+
+
+
+	/**
+	 * {@link AliasExpander::expandExplicit()}
+	 */
+	public static function expandExplicit($alias, $file, $line = 0)
+	{
+		return self::getExpander()->expandExplicit($alias, $file, $line);
 	}
 
 }
