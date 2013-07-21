@@ -8,11 +8,12 @@ namespace Milo;
  * Tool for a run-time class alias expanding (emulates the ::class from PHP 5.5)
  * and a helper for annotations processing.
  *
- * You can choose one of three licences:
+ * You can choose one of four licences:
  *
  * @licence New BSD License
  * @licence GNU General Public License version 2
  * @licence GNU General Public License version 3
+ * @licence MIT License
  *
  * @see https://github.com/milo/alias-expander
  *

@@ -11,11 +11,12 @@ use Milo,
 /**
  * AliasExpander with Nette (http://nette.org) cache implementation.
  *
- * You can choose one of three licences:
+ * You can choose one of four licences:
  *
  * @licence New BSD License
  * @licence GNU General Public License version 2
  * @licence GNU General Public License version 3
+ * @licence MIT
  *
  * @see https://github.com/milo/alias-expander
  *

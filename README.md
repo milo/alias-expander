@@ -62,4 +62,4 @@ There are some limitations:
 
 Licence
 =======
-You may use all files under the terms of the New BSD Licence, or the GNU Public Licence (GPL) version 2 or 3.
+You may use all files under the terms of the New BSD Licence, or the GNU Public Licence (GPL) version 2 or 3, or the MIT Licence.
