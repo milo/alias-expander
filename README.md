@@ -76,3 +76,9 @@ composer.phar update --dev
 # Run the tests
 vendor/bin/tester tests
 ```
+
+
+
+------
+
+[![Build Status](https://travis-ci.org/milo/alias-expander.png?branch=master)](https://travis-ci.org/milo/alias-expander)
