@@ -63,3 +63,16 @@ There are some limitations:
 Licence
 =======
 You may use all files under the terms of the New BSD Licence, or the GNU Public Licence (GPL) version 2 or 3, or the MIT Licence.
+
+
+
+Tests
+=====
+The AliasExpander tests are written for [Nette Tester](https://github.com/nette/tester). Two steps are required to run them:
+```sh
+# Download the Tester tool
+composer.phar update --dev
+
+# Run the tests
+vendor/bin/tester tests
+```

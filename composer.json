@@ -12,6 +12,9 @@
 	"require": {
 		"php": ">=5.3.0"
 	},
+	"require-dev": {
+		"nette/tester": "@dev"
+	},
 	"autoload": {
 		"classmap": ["AliasExpander.php", "Nette/AliasExpander.php"]
 	}
