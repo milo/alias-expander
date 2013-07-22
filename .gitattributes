@@ -3,3 +3,5 @@
 .travis.yml export-ignore
 composer.json export-ignore
 tests export-ignore
+
+*.php export-subst

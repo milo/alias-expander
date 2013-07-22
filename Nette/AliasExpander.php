@@ -13,12 +13,13 @@ use Milo,
  *
  * You can choose one of four licences:
  *
- * @licence New BSD License
- * @licence GNU General Public License version 2
- * @licence GNU General Public License version 3
- * @licence MIT
+ * @licence  New BSD License
+ * @licence  GNU General Public License version 2
+ * @licence  GNU General Public License version 3
+ * @licence  MIT
  *
- * @see https://github.com/milo/alias-expander
+ * @version  $Format:%h$
+ * @see  https://github.com/milo/alias-expander
  *
  * @author  Miloslav Hůla (https://github.com/milo)
  */
