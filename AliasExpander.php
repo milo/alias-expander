@@ -25,9 +25,6 @@ class AliasExpander
 	/** @var string  cache dir path */
 	private $cacheDir;
 
-	/** @var \ArrayIterator */
-	private $tokens;
-
 	/** @var array  cache of aliases */
 	private $cache;
 
@@ -68,7 +65,7 @@ class AliasExpander
 	/**
 	 * Check if the class expanded from the alias has been defined.
 	 * @param  bool|int  FALSE = off, TRUE = RuntimeException, int = user error level (E_USER_NOTICE, ...)
-	 * @param  bool  perform autoload
+	 * @param  bool  allow autoload when checking existency
 	 * @return self
 	 */
 	public function setExistsCheck($check, $autoload = TRUE)
@@ -111,39 +108,39 @@ class AliasExpander
 	 * @return string  fully qualified class name
 	 * @throws \LogicException  when empty class alias name passed
 	 */
-	public function expandExplicit($alias, $file, $line = 0)
+	public function expandExplicit($name, $file, $line = 0)
 	{
-		if (empty($alias)) {
+		if (empty($name)) {
 			throw new \LogicException('Alias name must not be empty.');
 		}
 
-		if ($alias[0] === '\\') { // already fully qualified
-			$return = ltrim($alias, '\\');
+		if ($name[0] === '\\') { // already fully qualified
+			$return = ltrim($name, '\\');
 
 		} else {
-			if (($pos = strpos($alias, '\\')) === FALSE) {
-				$lAlias = strtolower($alias);
+			if (($pos = strpos($name, '\\')) === FALSE) {
+				$lower = strtolower($name);
 				$suffix = '';
 			} else {
-				$lAlias = strtolower(substr($alias, 0, $pos));
-				$suffix = substr($alias, $pos);
+				$lower = strtolower(substr($name, 0, $pos));
+				$suffix = substr($name, $pos);
 			}
 
-			if (($parsed = $this->load($file)) === NULL) {
-				$parsed = $this->parse(file_get_contents($file));
-				$this->store($file, $parsed);
+			if (($namespaces = $this->load($file)) === NULL) {
+				$namespaces = $this->parse(file_get_contents($file));
+				$this->store($file, $namespaces);
 			}
 
-			$next = each($parsed);
+			$next = each($namespaces);
 			do {
-				list($nsLine, $data) = $next;
-				$next = each($parsed);
-			} while ($next !== FALSE && $next[0] < $line);
+				list(, $uses) = $next;
+				$next = each($namespaces);
+			} while ($next && $next[0] < $line);
 
-			if (isset($data['aliases'][$lAlias]) && $line > $data['aliases'][$lAlias][1]) {
-				$return = $data['aliases'][$lAlias][0] . $suffix;
+			if (isset($uses['aliases'][$lower]) && $uses['aliases'][$lower]['line'] < $line) {
+				$return = $uses['aliases'][$lower]['class'] . $suffix;
 			} else {
-				$return = $data['namespace'] === '' ? $alias : $data['namespace'] . '\\' . $alias;
+				$return = $uses['namespace'] === '' ? $name : $uses['namespace'] . '\\' . $name;
 			}
 		}
 
@@ -158,6 +155,111 @@ class AliasExpander
 
 		return $return;
 	}
+
+
+
+	/**
+	 * Parses PHP code and searches for namespaces and class aliases.
+	 * <code>
+	 * Return value:
+	 *
+	 * array(
+	 *     line => array(
+	 *         'namespace' => string,
+	 *         'aliases' => array(
+	 *             alias => array(
+	 *                 'line' => int,
+	 *                 'class' => string,
+	 *             )
+	 *         )
+	 *     )
+	 * )
+	 * </code>
+	 * @param  string  PHP code
+	 * @return array
+	 */
+	final protected function parse($code)
+	{
+		$tokens = @token_get_all($code); // @ - suppress useless warnings
+
+		$careTraits = PHP_VERSION_ID >= 50400;
+
+		$namespaces = array(
+			0 => array(
+				'namespace' => '',
+				'aliases' => array(),
+			),
+		);
+
+		$current = & $namespaces[0];
+
+		$namespace = $line = $class = $alias = $blockCounter = NULL;
+		foreach ($tokens as $token) {
+			if ($token[0] === T_WHITESPACE) {
+				// speed-up
+
+			} elseif ($token[0] === T_NAMESPACE) {
+				$namespace = '';
+				$line = $token[2];
+
+			} elseif ($namespace !== NULL && ($token[0] === T_STRING || $token[0] === T_NS_SEPARATOR)) {
+				$namespace .= $token[1];
+
+			} elseif ($namespace !== NULL && ($token === ';' || $token === '{')) {
+				$namespaces[$line] = array(
+					'namespace' => $namespace,
+					'aliases' => array(),
+				);
+				$current = & $namespaces[$line];
+				$namespace = NULL;
+
+			} elseif ($careTraits && ($token[0] === T_CLASS || $token[0] === T_TRAIT)) {
+				$blockCounter = 0;
+
+			} elseif ($blockCounter !== NULL) {
+				if ($token === '{') {
+					$blockCounter++;
+
+				} elseif ($token === '}') {
+					$blockCounter--;
+					if ($blockCounter === 0) {
+						$blockCounter = NULL;
+					}
+				}
+
+				// skipping Class/Trait body there
+
+			} elseif ($token[0] === T_USE) {
+				$alias = '';
+				$line = $token[2];
+
+			} elseif ($alias !== NULL) {
+				if ($token === '(') { // Case of function() use() {}
+					$class = $alias = NULL;
+
+				} elseif ($token[0] === T_STRING || $token[0] === T_NS_SEPARATOR) {
+					$alias .= $token[1];
+
+				} elseif ($token[0] === T_AS) {
+					$class = $alias;
+					$alias = '';
+
+				} elseif ($token === ';' || $token === ',') {
+					if ($class === NULL) {
+						$class = $alias;
+						$tmp = explode('\\', $alias);
+						$alias = end($tmp);
+					}
+					$current['aliases'][strtolower($alias)] = array('line' => $line, 'class' => ltrim($class, '\\'));
+					$class = NULL;
+					$alias = $token === ';' ? NULL : '';
+				}
+			}
+		}
+
+		return $namespaces;
+	}
+
 
 
 
@@ -223,106 +325,6 @@ class AliasExpander
 		return $this->cacheDir
 			. DIRECTORY_SEPARATOR
 			. substr(sha1($file), 0, 5) . '-' . pathinfo($file, PATHINFO_FILENAME) . '.php';
-	}
-
-
-
-	/* --- PHP source analyzing --------------------------------------------- */
-	/**
-	 * Parses file and search for namespace and class aliases.
-	 * @param  string  PHP code to parse
-	 * @return array[int line => array[namespace => string, aliases => array]]
-	 */
-	final protected function parse($code)
-	{
-		$this->tokens = new \ArrayIterator(token_get_all($code));
-
-		$parsed = array(
-			0 => array(
-				'namespace' => '',
-				'aliases' => array(),
-			),
-		);
-		$current = & $parsed[0];
-		while (($token = $this->fetchToken()) !== FALSE) {
-			if (is_array($token)) {
-				if ($token[0] === T_NAMESPACE) {
-					$parsed[$token[2]] = array(
-						'namespace' => $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR),
-						'aliases' => array(),
-					);
-					$current = & $parsed[$token[2]];
-
-				} elseif ($token[0] === T_USE && !$this->isNextToken('(')) {
-					do {
-						$class = ltrim($this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR), '\\');
-						if ($this->isNextToken(T_AS)) {
-							$this->fetchToken();
-							$alias = $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR);
-						} else {
-							$alias = substr($class, strrpos("\\$class", '\\'));
-						}
-
-						$current['aliases'][strtolower($alias)] = array($class, $token[2]);
-					} while ($this->isNextToken(',') && $this->fetchToken());
-				}
-			}
-		}
-
-		$this->tokens = NULL;
-
-		return $parsed;
-	}
-
-
-
-	/**
-	 * Fetch next token.
-	 * @param  bool  move cursor or not
-	 * @return array|string|FALSE
-	 */
-	private function fetchToken($move = TRUE)
-	{
-		$token = FALSE;
-		for (; $this->tokens->valid(); $this->tokens->next()) {
-			$token = $this->tokens->current();
-			if (!is_array($token) || !in_array($token[0], array(T_WHITESPACE, T_COMMENT, T_DOC_COMMENT), TRUE)) {
-				$move && $this->tokens->next();
-				break;
-			}
-		}
-		return $token;
-	}
-
-
-
-	/**
-	 * Fetch concatenated tokens.
-	 * @param  int|string  token type(s)
-	 * @return string
-	 */
-	private function fetchTokenWhile($type)
-	{
-		$types = func_get_args();
-		$result = '';
-		while (($token = $this->fetchToken(FALSE)) !== FALSE && in_array(is_array($token) ? $token[0] : $token, $types, TRUE)) {
-			$this->tokens->next();
-			$result .= is_array($token) ? $token[1] : $token;
-		}
-		return $result;
-	}
-
-
-
-	/**
-	 * Is next token given type?
-	 * @param  int|string  token type
-	 * @return string
-	 */
-	private function isNextToken($type)
-	{
-		$token = $this->fetchToken(FALSE);
-		return $type === (is_array($token) ? $token[0] : $token);
 	}
 
 }
