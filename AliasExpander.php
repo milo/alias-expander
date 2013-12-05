@@ -252,7 +252,7 @@ class AliasExpander
 
 					} elseif ($token[0] === T_USE && !$this->isNextToken('(')) {
 						do {
-							$class = $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR);
+							$class = ltrim($this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR), '\\');
 							if ($this->isNextToken(T_AS)) {
 								$this->fetchToken();
 								$alias = $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR);

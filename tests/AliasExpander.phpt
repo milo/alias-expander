@@ -21,6 +21,7 @@ $expander = new AliasExpander;
 
 use First, Second as Sec;
 use Third as Thi;
+use \Fourth as Fou;
 
 $cases = array(
 	'\Absolute' => 'Absolute',
@@ -39,6 +40,8 @@ $cases = array(
 	'Second\Foo' => __NAMESPACE__ . '\Second\Foo',
 
 	'Thi' => 'Third',
+
+	'Fou' => 'Fourth',
 );
 
 foreach ($cases as $alias => $expanded) {
