@@ -15,7 +15,7 @@ use Tester\Assert,
 
 use Second as Sec;
 
-class Foo {};
+class Foo {}
 
 class_alias('Foo', 'Bar');
 
