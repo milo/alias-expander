@@ -60,8 +60,7 @@ Assert::same( 'Fifth', $expander->expand('Fif') );
 # Switch namespace
 namespace Test\Universe;
 
-use Tester\Assert,
-	Milo\Utils\AliasExpander;
+use Tester\Assert;
 
 
 use Sixth as Six;
@@ -72,3 +71,14 @@ Assert::same( 'Sixth', $expander->expand('Six') );
 Assert::same( __NAMESPACE__ . '\Sec', $expander->expand('Sec') );
 use Second as Sec;
 Assert::same( 'Second', $expander->expand('Sec') );
+
+
+
+# Reset namespace
+namespace Test\Universe;
+
+use Tester\Assert;
+
+Assert::same( __NAMESPACE__ . '\Six', $expander->expand('Six') );
+use Sixth as Six;
+Assert::same( 'Sixth', $expander->expand('Six') );
