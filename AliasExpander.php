@@ -129,7 +129,11 @@ class AliasExpander
 				$suffix = substr($alias, $pos);
 			}
 
-			$parsed = $this->parse($file);
+			if (($parsed = $this->load($file)) === NULL) {
+				$parsed = $this->parse(file_get_contents($file));
+				$this->store($file, $parsed);
+			}
+
 			$next = each($parsed);
 			do {
 				list($nsLine, $data) = $next;
@@ -226,49 +230,46 @@ class AliasExpander
 	/* --- PHP source analyzing --------------------------------------------- */
 	/**
 	 * Parses file and search for namespace and class aliases.
-	 * @param  string  path to PHP source file
+	 * @param  string  PHP code to parse
 	 * @return array[int line => array[namespace => string, aliases => array]]
 	 */
-	private function parse($file)
+	final protected function parse($code)
 	{
-		if (($parsed = $this->load($file)) === NULL) {
-			$this->tokens = new \ArrayIterator(token_get_all(file_get_contents($file)));
+		$this->tokens = new \ArrayIterator(token_get_all($code));
 
-			$parsed = array(
-				0 => array(
-					'namespace' => '',
-					'aliases' => array(),
-				),
-			);
-			$current = & $parsed[0];
-			while (($token = $this->fetchToken()) !== FALSE) {
-				if (is_array($token)) {
-					if ($token[0] === T_NAMESPACE) {
-						$parsed[$token[2]] = array(
-							'namespace' => $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR),
-							'aliases' => array(),
-						);
-						$current = & $parsed[$token[2]];
+		$parsed = array(
+			0 => array(
+				'namespace' => '',
+				'aliases' => array(),
+			),
+		);
+		$current = & $parsed[0];
+		while (($token = $this->fetchToken()) !== FALSE) {
+			if (is_array($token)) {
+				if ($token[0] === T_NAMESPACE) {
+					$parsed[$token[2]] = array(
+						'namespace' => $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR),
+						'aliases' => array(),
+					);
+					$current = & $parsed[$token[2]];
 
-					} elseif ($token[0] === T_USE && !$this->isNextToken('(')) {
-						do {
-							$class = ltrim($this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR), '\\');
-							if ($this->isNextToken(T_AS)) {
-								$this->fetchToken();
-								$alias = $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR);
-							} else {
-								$alias = substr($class, strrpos("\\$class", '\\'));
-							}
+				} elseif ($token[0] === T_USE && !$this->isNextToken('(')) {
+					do {
+						$class = ltrim($this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR), '\\');
+						if ($this->isNextToken(T_AS)) {
+							$this->fetchToken();
+							$alias = $this->fetchTokenWhile(T_STRING, T_NS_SEPARATOR);
+						} else {
+							$alias = substr($class, strrpos("\\$class", '\\'));
+						}
 
-							$current['aliases'][strtolower($alias)] = array($class, $token[2]);
-						} while ($this->isNextToken(',') && $this->fetchToken());
-					}
+						$current['aliases'][strtolower($alias)] = array($class, $token[2]);
+					} while ($this->isNextToken(',') && $this->fetchToken());
 				}
 			}
-
-			$this->tokens = NULL;
-			$this->store($file, $parsed);
 		}
+
+		$this->tokens = NULL;
 
 		return $parsed;
 	}
