@@ -6,5 +6,5 @@ if (!is_file(__DIR__ . '/../vendor/autoload.php')) {
 }
 include __DIR__ . '/../vendor/autoload.php';
 
-Tester\Helpers::setup();
+Tester\Environment::setup();
 class_alias('Tester\Assert', 'Assert');
