@@ -234,7 +234,7 @@ class AliasExpander
 				$line = $token[2];
 
 			} elseif ($alias !== NULL) {
-				if ($token === '(') { // Case of function() use() {}
+				if ($token === '(' || $token[0] === T_FUNCTION || $token[0] === T_CONST) { // Cases of 'function() use() {}', or 'use function ...', or 'use const ...'
 					$class = $alias = NULL;
 
 				} elseif ($token[0] === T_STRING || $token[0] === T_NS_SEPARATOR) {
